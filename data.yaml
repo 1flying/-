@@ -1,0 +1,13 @@
+train: C:\Users\Administrator\Desktop\毕业设计\My First Project.v3i.yolov8/train/images
+val: C:\Users\Administrator\Desktop\毕业设计\My First Project.v3i.yolov8/valid/images
+test: C:\Users\Administrator\Desktop\毕业设计\My First Project.v3i.yolov8/test/images
+
+nc: 15
+names: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', 'L', 'R', 'objects','runway']
+
+roboflow:
+  workspace: bigbirdflying
+  project: my-first-project-71nzl
+  version: 3
+  license: CC BY 4.0
+  url: https://universe.roboflow.com/bigbirdflying/my-first-project-71nzl/dataset/3
