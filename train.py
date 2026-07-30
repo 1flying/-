@@ -23,13 +23,13 @@
 #     )
 
 import warnings
+
 warnings.filterwarnings("ignore")
 from ultralytics import YOLO
 
-
 if __name__ == "__main__":
     # 加载已训练100epoch的权重（作为预训练模型，而非断点恢复）
-    model = YOLO('yolo26n.pt')
+    model = YOLO("yolo26n.pt")
 
     model.train(
         data="data.yaml",
@@ -45,5 +45,5 @@ if __name__ == "__main__":
         resume=False,  # 核心修改：关闭断点恢复，改为基于预训练权重继续训练
         amp=True,
         project="result/aircraft",
-        name="yolov13_baseline"
+        name="yolov13_baseline",
     )
