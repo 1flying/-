@@ -77,6 +77,7 @@ def box_iou(box1: torch.Tensor, box2: torch.Tensor, eps: float = 1e-7) -> torch.
     # IoU = inter / (area1 + area2 - inter)
     return inter / ((a2 - a1).prod(2) + (b2 - b1).prod(2) - inter + eps)
 
+
 # ---------------------------老代码------------------------
 # def bbox_iou(
 #     box1: torch.Tensor,
@@ -146,16 +147,14 @@ def box_iou(box1: torch.Tensor, box2: torch.Tensor, eps: float = 1e-7) -> torch.
 #         return iou - (c_area - union) / c_area  # GIoU https://arxiv.org/pdf/1902.09630.pdf
 #     return iou  # IoU
 
+
 # ---------------------------------新代码-------------------------------------
 class WIoU_Scale:
-    ''' monotonous: {
-            None: origin v1
-            True: monotonic FM v2
-            False: non-monotonic FM v3
-        }
-        momentum: The momentum of running mean'''
+    """monotonous: { None: origin v1 True: monotonic FM v2 False: non-monotonic FM v3 } momentum: The momentum of
+    running mean.
+    """
 
-    iou_mean = 1.
+    iou_mean = 1.0
     monotonous = False
     _momentum = 1 - 0.5 ** (1 / 7000)
     _is_train = True
@@ -166,8 +165,8 @@ class WIoU_Scale:
 
     @classmethod
     def _update(cls, self):
-        if cls._is_train: cls.iou_mean = (1 - cls._momentum) * cls.iou_mean + \
-                                         cls._momentum * self.iou.detach().mean().item()
+        if cls._is_train:
+            cls.iou_mean = (1 - cls._momentum) * cls.iou_mean + cls._momentum * self.iou.detach().mean().item()
 
     @classmethod
     def _scaled_loss(cls, self, gamma=1.9, delta=3):
@@ -181,8 +180,22 @@ class WIoU_Scale:
         return 1
 
 
-def bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU=False, EIoU=False, WIoU=False, Focal=False,
-             alpha=1, gamma=0.5, scale=False, eps=1e-7):
+def bbox_iou(
+    box1,
+    box2,
+    xywh=True,
+    GIoU=False,
+    DIoU=False,
+    CIoU=False,
+    SIoU=False,
+    EIoU=False,
+    WIoU=False,
+    Focal=False,
+    alpha=1,
+    gamma=0.5,
+    scale=False,
+    eps=1e-7,
+):
     # Returns Intersection over Union (IoU) of box1(1,4) to box2(n,4)
 
     # Get the coordinates of bounding boxes
@@ -198,8 +211,9 @@ def bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU=Fal
         w2, h2 = b2_x2 - b2_x1, (b2_y2 - b2_y1).clamp(eps)
 
     # Intersection area
-    inter = (b1_x2.minimum(b2_x2) - b1_x1.maximum(b2_x1)).clamp(0) * \
-            (b1_y2.minimum(b2_y2) - b1_y1.maximum(b2_y1)).clamp(0)
+    inter = (b1_x2.minimum(b2_x2) - b1_x1.maximum(b2_x1)).clamp(0) * (
+        b1_y2.minimum(b2_y2) - b1_y1.maximum(b2_y1)
+    ).clamp(0)
 
     # Union Area
     union = w1 * h1 + w2 * h2 - inter + eps
@@ -213,33 +227,36 @@ def bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU=Fal
         cw = b1_x2.maximum(b2_x2) - b1_x1.minimum(b2_x1)  # convex (smallest enclosing box) width
         ch = b1_y2.maximum(b2_y2) - b1_y1.minimum(b2_y1)  # convex height
         if CIoU or DIoU or EIoU or SIoU or WIoU:  # Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
-            c2 = (cw ** 2 + ch ** 2) ** alpha + eps  # convex diagonal squared
-            rho2 = (((b2_x1 + b2_x2 - b1_x1 - b1_x2) ** 2 + (
-                        b2_y1 + b2_y2 - b1_y1 - b1_y2) ** 2) / 4) ** alpha  # center dist ** 2
+            c2 = (cw**2 + ch**2) ** alpha + eps  # convex diagonal squared
+            rho2 = (
+                ((b2_x1 + b2_x2 - b1_x1 - b1_x2) ** 2 + (b2_y1 + b2_y2 - b1_y1 - b1_y2) ** 2) / 4
+            ) ** alpha  # center dist ** 2
             if CIoU:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
-                v = (4 / math.pi ** 2) * (torch.atan(w2 / h2) - torch.atan(w1 / h1)).pow(2)
+                v = (4 / math.pi**2) * (torch.atan(w2 / h2) - torch.atan(w1 / h1)).pow(2)
                 with torch.no_grad():
                     alpha_ciou = v / (v - iou + (1 + eps))
                 if Focal:
-                    return iou - (rho2 / c2 + torch.pow(v * alpha_ciou + eps, alpha)), torch.pow(inter / (union + eps),
-                                                                                                 gamma)  # Focal_CIoU
+                    return iou - (rho2 / c2 + torch.pow(v * alpha_ciou + eps, alpha)), torch.pow(
+                        inter / (union + eps), gamma
+                    )  # Focal_CIoU
                 else:
                     return iou - (rho2 / c2 + torch.pow(v * alpha_ciou + eps, alpha))  # CIoU
             elif EIoU:
                 rho_w2 = ((b2_x2 - b2_x1) - (b1_x2 - b1_x1)) ** 2
                 rho_h2 = ((b2_y2 - b2_y1) - (b1_y2 - b1_y1)) ** 2
-                cw2 = torch.pow(cw ** 2 + eps, alpha)
-                ch2 = torch.pow(ch ** 2 + eps, alpha)
+                cw2 = torch.pow(cw**2 + eps, alpha)
+                ch2 = torch.pow(ch**2 + eps, alpha)
                 if Focal:
-                    return iou - (rho2 / c2 + rho_w2 / cw2 + rho_h2 / ch2), torch.pow(inter / (union + eps),
-                                                                                      gamma)  # Focal_EIou
+                    return iou - (rho2 / c2 + rho_w2 / cw2 + rho_h2 / ch2), torch.pow(
+                        inter / (union + eps), gamma
+                    )  # Focal_EIou
                 else:
                     return iou - (rho2 / c2 + rho_w2 / cw2 + rho_h2 / ch2)  # EIou
             elif SIoU:
                 # SIoU Loss https://arxiv.org/pdf/2205.12740.pdf
                 s_cw = (b2_x1 + b2_x2 - b1_x1 - b1_x2) * 0.5 + eps
                 s_ch = (b2_y1 + b2_y2 - b1_y1 - b1_y2) * 0.5 + eps
-                sigma = torch.pow(s_cw ** 2 + s_ch ** 2, 0.5)
+                sigma = torch.pow(s_cw**2 + s_ch**2, 0.5)
                 sin_alpha_1 = torch.abs(s_cw) / sigma
                 sin_alpha_2 = torch.abs(s_ch) / sigma
                 threshold = pow(2, 0.5) / 2
@@ -254,31 +271,37 @@ def bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU=Fal
                 shape_cost = torch.pow(1 - torch.exp(-1 * omiga_w), 4) + torch.pow(1 - torch.exp(-1 * omiga_h), 4)
                 if Focal:
                     return iou - torch.pow(0.5 * (distance_cost + shape_cost) + eps, alpha), torch.pow(
-                        inter / (union + eps), gamma)  # Focal_SIou
+                        inter / (union + eps), gamma
+                    )  # Focal_SIou
                 else:
                     return iou - torch.pow(0.5 * (distance_cost + shape_cost) + eps, alpha)  # SIou
             elif WIoU:
                 if Focal:
                     raise RuntimeError("WIoU do not support Focal.")
                 elif scale:
-                    return getattr(WIoU_Scale, '_scaled_loss')(self), (1 - iou) * torch.exp(
-                        (rho2 / c2)), iou  # WIoU https://arxiv.org/abs/2301.10051
+                    return (
+                        WIoU_Scale._scaled_loss(self),
+                        (1 - iou) * torch.exp(rho2 / c2),
+                        iou,
+                    )  # WIoU https://arxiv.org/abs/2301.10051
                 else:
-                    return iou, torch.exp((rho2 / c2))  # WIoU v1
+                    return iou, torch.exp(rho2 / c2)  # WIoU v1
             if Focal:
                 return iou - rho2 / c2, torch.pow(inter / (union + eps), gamma)  # Focal_DIoU
             else:
                 return iou - rho2 / c2  # DIoU
         c_area = cw * ch + eps  # convex area
         if Focal:
-            return iou - torch.pow((c_area - union) / c_area + eps, alpha), torch.pow(inter / (union + eps),
-                                                                                      gamma)  # Focal_GIoU https://arxiv.org/pdf/1902.09630.pdf
+            return iou - torch.pow((c_area - union) / c_area + eps, alpha), torch.pow(
+                inter / (union + eps), gamma
+            )  # Focal_GIoU https://arxiv.org/pdf/1902.09630.pdf
         else:
             return iou - torch.pow((c_area - union) / c_area + eps, alpha)  # GIoU https://arxiv.org/pdf/1902.09630.pdf
     if Focal:
         return iou, torch.pow(inter / (union + eps), gamma)  # Focal_IoU
     else:
         return iou  # IoU
+
 
 def mask_iou(mask1: torch.Tensor, mask2: torch.Tensor, eps: float = 1e-7) -> torch.Tensor:
     """Calculate masks IoU.
@@ -449,7 +472,7 @@ class ConfusionMatrix(DataExportMixin):
         matches (dict): Contains the indices of ground truths and predictions categorized into TP, FP and FN.
     """
 
-    def __init__(self, names: dict[int, str] = {}, task: str = "detect", save_matches: bool = False):
+    def __init__(self, names: dict[int, str] | None = None, task: str = "detect", save_matches: bool = False):
         """Initialize a ConfusionMatrix instance.
 
         Args:
@@ -457,6 +480,8 @@ class ConfusionMatrix(DataExportMixin):
             task (str, optional): Type of task, either 'detect' or 'classify'.
             save_matches (bool, optional): Save the indices of GTs, TPs, FPs, FNs for visualization.
         """
+        if names is None:
+            names = {}
         self.task = task
         self.nc = len(names)  # number of classes
         self.matrix = np.zeros((self.nc, self.nc)) if self.task == "classify" else np.zeros((self.nc + 1, self.nc + 1))
@@ -519,7 +544,7 @@ class ConfusionMatrix(DataExportMixin):
         """
         gt_cls, gt_bboxes = batch["cls"], batch["bboxes"]
         if self.matches is not None:  # only if visualization is enabled
-            self.matches = {k: defaultdict(list) for k in {"TP", "FP", "FN", "GT"}}
+            self.matches = {k: defaultdict(list) for k in ("TP", "FP", "FN", "GT")}
             for i in range(gt_cls.shape[0]):
                 self._append_matches("GT", batch, i)  # store GT
         is_obb = gt_bboxes.shape[1] == 5  # check if boxes contains angle for OBB
@@ -614,7 +639,7 @@ class ConfusionMatrix(DataExportMixin):
             if "conf" not in mbatch:
                 mbatch["conf"] = torch.tensor([1.0] * len(mbatch["bboxes"]), device=img.device)
             mbatch["batch_idx"] = torch.ones(len(mbatch["bboxes"]), device=img.device) * i
-            for k in mbatch.keys():
+            for k in mbatch:
                 labels[k] += mbatch[k]
 
         labels = {k: torch.stack(v, 0) if len(v) else torch.empty(0) for k, v in labels.items()}
@@ -693,7 +718,7 @@ class ConfusionMatrix(DataExportMixin):
         if ticklabels != "auto":
             ax.set_xticklabels(ticklabels, fontsize=tick_fontsize, rotation=90, ha="center")
             ax.set_yticklabels(ticklabels, fontsize=tick_fontsize)
-        for s in {"left", "right", "bottom", "top", "outline"}:
+        for s in ("left", "right", "bottom", "top", "outline"):
             if s != "outline":
                 ax.spines[s].set_visible(False)  # Confusion matrix plot don't have outline
             cbar.ax.spines[s].set_visible(False)
@@ -761,7 +786,7 @@ def plot_pr_curve(
     py: np.ndarray,
     ap: np.ndarray,
     save_dir: Path = Path("pr_curve.png"),
-    names: dict[int, str] = {},
+    names: dict[int, str] | None = None,
     on_plot=None,
 ):
     """Plot precision-recall curve.
@@ -776,6 +801,8 @@ def plot_pr_curve(
     """
     import matplotlib.pyplot as plt  # scope for faster 'import ultralytics'
 
+    if names is None:
+        names = {}
     fig, ax = plt.subplots(1, 1, figsize=(9, 6), tight_layout=True)
     py = np.stack(py, axis=1)
 
@@ -805,7 +832,7 @@ def plot_mc_curve(
     px: np.ndarray,
     py: np.ndarray,
     save_dir: Path = Path("mc_curve.png"),
-    names: dict[int, str] = {},
+    names: dict[int, str] | None = None,
     xlabel: str = "Confidence",
     ylabel: str = "Metric",
     on_plot=None,
@@ -823,6 +850,8 @@ def plot_mc_curve(
     """
     import matplotlib.pyplot as plt  # scope for faster 'import ultralytics'
 
+    if names is None:
+        names = {}
     fig, ax = plt.subplots(1, 1, figsize=(9, 6), tight_layout=True)
 
     if 0 < len(names) < 21:  # display per-class legend if < 21 classes
@@ -886,7 +915,7 @@ def ap_per_class(
     plot: bool = False,
     on_plot=None,
     save_dir: Path = Path(),
-    names: dict[int, str] = {},
+    names: dict[int, str] | None = None,
     eps: float = 1e-16,
     prefix: str = "",
 ) -> tuple:
@@ -919,6 +948,8 @@ def ap_per_class(
         prec_values (np.ndarray): Precision values at mAP@0.5 for each class.
     """
     # Sort by objectness
+    if names is None:
+        names = {}
     i = np.argsort(-conf)
     tp, conf, pred_cls = tp[i], conf[i], pred_cls[i]
 
@@ -1169,17 +1200,19 @@ class DetMetrics(SimpleClass, DataExportMixin):
         summary: Generate a summarized representation of per-class detection metrics as a list of dictionaries.
     """
 
-    def __init__(self, names: dict[int, str] = {}) -> None:
+    def __init__(self, names: dict[int, str] | None = None) -> None:
         """Initialize a DetMetrics instance with a save directory, plot flag, and class names.
 
         Args:
             names (dict[int, str], optional): Dictionary of class names.
         """
+        if names is None:
+            names = {}
         self.names = names
         self.box = Metric()
         self.speed = {"preprocess": 0.0, "inference": 0.0, "loss": 0.0, "postprocess": 0.0}
         self.task = "detect"
-        self.stats = dict(tp=[], conf=[], pred_cls=[], target_cls=[], target_img=[])
+        self.stats = {"tp": [], "conf": [], "pred_cls": [], "target_cls": [], "target_img": []}
         self.nt_per_class = None
         self.nt_per_image = None
 
@@ -1190,7 +1223,7 @@ class DetMetrics(SimpleClass, DataExportMixin):
             stat (dict[str, any]): Dictionary containing new statistical values to append. Keys should match existing
                 keys in self.stats.
         """
-        for k in self.stats.keys():
+        for k in self.stats:
             self.stats[k].append(stat[k])
 
     def process(self, save_dir: Path = Path("."), plot: bool = False, on_plot=None) -> dict[str, np.ndarray]:
@@ -1335,12 +1368,14 @@ class SegmentMetrics(DetMetrics):
         summary: Generate a summarized representation of per-class segmentation metrics as a list of dictionaries.
     """
 
-    def __init__(self, names: dict[int, str] = {}) -> None:
+    def __init__(self, names: dict[int, str] | None = None) -> None:
         """Initialize a SegmentMetrics instance with a save directory, plot flag, and class names.
 
         Args:
             names (dict[int, str], optional): Dictionary of class names.
         """
+        if names is None:
+            names = {}
         DetMetrics.__init__(self, names)
         self.seg = Metric()
         self.task = "segment"
@@ -1473,12 +1508,14 @@ class PoseMetrics(DetMetrics):
         summary: Generate a summarized representation of per-class pose metrics as a list of dictionaries.
     """
 
-    def __init__(self, names: dict[int, str] = {}) -> None:
+    def __init__(self, names: dict[int, str] | None = None) -> None:
         """Initialize the PoseMetrics class with directory path, class names, and plotting options.
 
         Args:
             names (dict[int, str], optional): Dictionary of class names.
         """
+        if names is None:
+            names = {}
         super().__init__(names)
         self.pose = Metric()
         self.task = "pose"
@@ -1686,12 +1723,14 @@ class OBBMetrics(DetMetrics):
         https://arxiv.org/pdf/2106.06072.pdf
     """
 
-    def __init__(self, names: dict[int, str] = {}) -> None:
+    def __init__(self, names: dict[int, str] | None = None) -> None:
         """Initialize an OBBMetrics instance with directory, plotting, and class names.
 
         Args:
             names (dict[int, str], optional): Dictionary of class names.
         """
+        if names is None:
+            names = {}
         DetMetrics.__init__(self, names)
         # TODO: probably remove task as well
         self.task = "obb"
