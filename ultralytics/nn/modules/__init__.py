@@ -76,6 +76,7 @@ from .conv import (
     RepConv,
     SpatialAttention,
 )
+from .GAM_Attention import GAM
 from .head import (
     OBB,
     OBB26,
@@ -105,7 +106,6 @@ from .transformer import (
     TransformerEncoderLayer,
     TransformerLayer,
 )
-from.GAM_Attention import GAM
 
 __all__ = (
     "AIFI",
@@ -118,6 +118,7 @@ __all__ = (
     "CIB",
     "DFL",
     "ELAN1",
+    "GAM",
     "MLP",
     "OBB",
     "OBB26",
@@ -188,5 +189,4 @@ __all__ = (
     "YOLOESegment",
     "YOLOESegment26",
     "v10Detect",
-    "GAM"
 )
