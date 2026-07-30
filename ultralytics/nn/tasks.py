@@ -8,11 +8,12 @@ from copy import deepcopy
 from pathlib import Path
 
 import torch
-import torch.nn as nn
+from torch import nn
 
 from ultralytics.nn.autobackend import check_class_names
+from ultralytics.nn.CBAMAttention import CBAM
+from ultralytics.nn.ECAAttention import ECAAttention
 from ultralytics.nn.modules import (
-    GAM,
     AIFI,
     C1,
     C2,
@@ -20,6 +21,7 @@ from ultralytics.nn.modules import (
     C3,
     C3TR,
     ELAN1,
+    GAM,
     OBB,
     OBB26,
     PSA,
@@ -74,6 +76,7 @@ from ultralytics.nn.modules import (
     YOLOESegment26,
     v10Detect,
 )
+from ultralytics.nn.SEAttention import SEAttention
 from ultralytics.utils import DEFAULT_CFG_DICT, LOGGER, YAML, colorstr, emojis
 from ultralytics.utils.checks import check_requirements, check_suffix, check_yaml
 from ultralytics.utils.loss import (
@@ -99,9 +102,6 @@ from ultralytics.utils.torch_utils import (
     time_sync,
 )
 
-from ultralytics.nn.SEAttention import SEAttention
-from ultralytics.nn.ECAAttention import ECAAttention
-from ultralytics.nn.CBAMAttention import CBAM
 
 class BaseModel(torch.nn.Module):
     """Base class for all YOLO models in the Ultralytics family.
@@ -1379,11 +1379,9 @@ class SafeClass:
 
     def __init__(self, *args, **kwargs):
         """Initialize SafeClass instance, ignoring all arguments."""
-        pass
 
     def __call__(self, *args, **kwargs):
         """Run SafeClass instance, ignoring all arguments."""
-        pass
 
 
 class SafeUnpickler(pickle.Unpickler):
