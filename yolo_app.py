@@ -1,22 +1,19 @@
-import streamlit as st
+import tempfile
+import time
+
 import cv2
 import numpy as np
+import streamlit as st
 from PIL import Image
+
 from ultralytics import YOLO
-import time
-import tempfile
-import os
-from pathlib import Path
 
 # ===================== 页面配置 =====================
-st.set_page_config(
-    page_title="YOLOv8 飞机跑道识别系统",
-    layout="wide",
-    page_icon="✈️"
-)
+st.set_page_config(page_title="YOLOv8 飞机跑道识别系统", layout="wide", page_icon="✈️")
 
 # 自定义美化 CSS
-st.markdown("""
+st.markdown(
+    """
 <style>
     .main { background-color: #0b1020; color: white; }
     .stButton>button { 
@@ -29,12 +26,16 @@ st.markdown("""
     div[data-testid="stMetricValue"] { color: #4cc9f0; }
     .log-box { background: #121a33; padding: 15px; border-radius: 10px; height: 250px; overflow-y: auto; }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
+
 
 # ===================== 加载模型 =====================
 @st.cache_resource
 def load_model():
     return YOLO("runs/detect/result/aircraft/yolov8-loss/SIOU-LeakyReLU/weights/best.pt")  # 你训练好的权重
+
 
 model = load_model()
 
@@ -107,11 +108,13 @@ with metric_col3:
 with metric_col4:
     st.metric("识别目标数", "0")
 
+
 # ===================== 识别逻辑 =====================
 def append_log(msg):
     global log_text
     log_text = f"[{time.strftime('%H:%M:%S')}] {msg}\n" + log_text
     log_area.markdown(f"<div class='log-box'>{log_text}</div>", unsafe_allow_html=True)
+
 
 # 图片识别
 if mode == "上传图片" and uploaded_file is not None and run:
@@ -178,4 +181,3 @@ if mode == "上传视频" and uploaded_file is not None and run:
         append_log("❌ 识别已停止")
 
     cap.release()
-
