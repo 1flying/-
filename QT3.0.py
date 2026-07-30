@@ -1,17 +1,30 @@
-import sys
 import os
+import sys
 import time
-import numpy as np
 from pathlib import Path
+
 import cv2
-from ultralytics import YOLO
+import numpy as np
+from PyQt5.QtCore import Qt, QThread, pyqtSignal, pyqtSlot
+from PyQt5.QtGui import QBrush, QColor, QFont, QImage, QPalette, QPixmap
 from PyQt5.QtWidgets import (
-    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout,
-    QPushButton, QLabel, QFileDialog, QSlider, QComboBox,
-    QTextEdit, QSplitter, QDoubleSpinBox, QSizePolicy, QGroupBox
+    QApplication,
+    QComboBox,
+    QDoubleSpinBox,
+    QFileDialog,
+    QGroupBox,
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QPushButton,
+    QSlider,
+    QSplitter,
+    QTextEdit,
+    QVBoxLayout,
+    QWidget,
 )
-from PyQt5.QtGui import QPixmap, QImage, QFont, QPalette, QBrush, QColor
-from PyQt5.QtCore import Qt, QThread, pyqtSignal, pyqtSlot, QTimer
+
+from ultralytics import YOLO
 
 
 # 视频播放+识别一体化线程（简化逻辑，确保稳定性）
@@ -121,7 +134,7 @@ class VideoDetectionThread(QThread):
                 self.msleep(delay)
 
         except Exception as e:
-            self.error_signal.emit(f"运行错误: {str(e)}")
+            self.error_signal.emit(f"运行错误: {e!s}")
         finally:
             if self.cap:
                 self.cap.release()
@@ -232,7 +245,7 @@ class CameraDetectionThread(QThread):
                 self.msleep(30)  # 约30fps
 
         except Exception as e:
-            self.error_signal.emit(f"摄像头检测错误: {str(e)}")
+            self.error_signal.emit(f"摄像头检测错误: {e!s}")
         finally:
             if self.cap:
                 self.cap.release()
@@ -510,16 +523,14 @@ class YOLOv8AircraftUI(QMainWindow):
                 self.model_combo.addItem(model_file.name, str(model_file))
 
         except Exception as e:
-            self.result_display.setText(f"加载模型出错: {str(e)}")
+            self.result_display.setText(f"加载模型出错: {e!s}")
 
     # 选择图片
     def select_image(self):
         self.stop_all()
         self.video_control_widget.setVisible(False)
 
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "选择图片", "", "Image Files (*.png *.jpg *.jpeg *.bmp)"
-        )
+        file_path, _ = QFileDialog.getOpenFileName(self, "选择图片", "", "Image Files (*.png *.jpg *.jpeg *.bmp)")
         if not file_path:
             return
 
@@ -531,7 +542,8 @@ class YOLOv8AircraftUI(QMainWindow):
         qimg = QImage(img_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888)
         pixmap = QPixmap.fromImage(qimg)
         self.original_label.setPixmap(
-            pixmap.scaled(self.original_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            pixmap.scaled(self.original_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        )
 
         # 获取模型路径
         model_idx = self.model_combo.currentIndex()
@@ -557,7 +569,8 @@ class YOLOv8AircraftUI(QMainWindow):
         detected_qimg = QImage(detected_rgb.data, w2, h2, bytes_per_line2, QImage.Format_RGB888)
         detected_pixmap = QPixmap.fromImage(detected_qimg)
         self.detected_label.setPixmap(
-            detected_pixmap.scaled(self.detected_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            detected_pixmap.scaled(self.detected_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        )
 
         # 更新信息
         self.time_display.setText(f"{detect_time}s")
@@ -574,9 +587,7 @@ class YOLOv8AircraftUI(QMainWindow):
     def select_video(self):
         self.stop_all()
 
-        file_path, _ = QFileDialog.getOpenFileName(
-            self, "选择视频", "", "Video Files (*.mp4 *.avi *.mov *.mkv)"
-        )
+        file_path, _ = QFileDialog.getOpenFileName(self, "选择视频", "", "Video Files (*.mp4 *.avi *.mov *.mkv)")
         if not file_path:
             return
 
@@ -589,9 +600,7 @@ class YOLOv8AircraftUI(QMainWindow):
 
         # 初始化视频线程
         self.video_thread = VideoDetectionThread(
-            video_path=file_path,
-            model_path=model_path,
-            conf_threshold=self.conf_spin.value()
+            video_path=file_path, model_path=model_path, conf_threshold=self.conf_spin.value()
         )
 
         # 绑定信号
@@ -643,9 +652,7 @@ class YOLOv8AircraftUI(QMainWindow):
 
             # 初始化摄像头线程
             self.camera_thread = CameraDetectionThread(
-                camera_index=camera_index,
-                model_path=model_path,
-                conf_threshold=self.conf_spin.value()
+                camera_index=camera_index, model_path=model_path, conf_threshold=self.conf_spin.value()
             )
 
             # 绑定信号
@@ -674,14 +681,16 @@ class YOLOv8AircraftUI(QMainWindow):
     def update_original_frame(self, qimg):
         pixmap = QPixmap.fromImage(qimg)
         self.original_label.setPixmap(
-            pixmap.scaled(self.original_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            pixmap.scaled(self.original_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        )
 
     # 更新识别帧（修复颜色）
     @pyqtSlot(QImage)
     def update_detected_frame(self, qimg):
         pixmap = QPixmap.fromImage(qimg)
         self.detected_label.setPixmap(
-            pixmap.scaled(self.detected_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            pixmap.scaled(self.detected_label.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        )
 
     # 更新进度条
     @pyqtSlot(int)
@@ -772,9 +781,10 @@ class YOLOv8AircraftUI(QMainWindow):
 if __name__ == "__main__":
     # 检查依赖
     try:
-        import ultralytics
         import cv2
         import numpy as np
+
+        import ultralytics
     except ImportError:
         print("请先安装依赖：")
         print("pip install ultralytics opencv-python pyqt5 numpy")
