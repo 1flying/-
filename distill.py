@@ -1,14 +1,14 @@
-from ultralytics import YOLO
 import torch
-import torch.nn as nn
 import torch.nn.functional as nnf
+
+from ultralytics import YOLO
 
 
 def run_distill():
     # ===================== 【只改这里】 =====================
-    STUDENT = 'yolov8s.pt'  # 学生模型（自动下载，不用训练）
-    TEACHER = 'runs/detect/result/aircraft/yolov8-loss/SIOU-LeakyReLU/weights/best.pt'  # 你的模型（教师，必须有效）
-    DATA = 'data.yaml'  # 你的数据集
+    STUDENT = "yolov8s.pt"  # 学生模型（自动下载，不用训练）
+    TEACHER = "runs/detect/result/aircraft/yolov8-loss/SIOU-LeakyReLU/weights/best.pt"  # 你的模型（教师，必须有效）
+    DATA = "data.yaml"  # 你的数据集
     EPOCHS = 50
     BATCH = 16
     DEVICE = 0
@@ -49,15 +49,8 @@ def run_distill():
     student.model.forward = new_forward
 
     # 开始训练（官方原生，最稳定）
-    student.train(
-        data=DATA,
-        epochs=EPOCHS,
-        batch=BATCH,
-        device=DEVICE,
-        project="runs_distill",
-        name="final_student"
-    )
+    student.train(data=DATA, epochs=EPOCHS, batch=BATCH, device=DEVICE, project="runs_distill", name="final_student")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run_distill()

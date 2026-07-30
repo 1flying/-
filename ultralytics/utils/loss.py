@@ -6,8 +6,8 @@ import math
 from typing import Any
 
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 
 from ultralytics.utils.metrics import OKS_SIGMA, RLE_WEIGHT
 from ultralytics.utils.ops import crop_mask, xywh2xyxy, xyxy2xywh
@@ -16,7 +16,6 @@ from ultralytics.utils.torch_utils import autocast
 
 from .metrics import bbox_iou, probiou
 from .tal import bbox2dist, rbox2dist
-from .new_bbox_iou import new_bbox_iou
 
 
 class VarifocalLoss(nn.Module):
@@ -166,6 +165,7 @@ class BboxLoss(nn.Module):
             loss_dfl = loss_dfl.sum() / target_scores_sum
 
         return loss_iou, loss_dfl
+
 
 # # -------------------------------新BboxLoss----------------------------
 # class BboxLoss(nn.Module):
@@ -468,11 +468,11 @@ class v8DetectionLoss:
             stride=self.stride.tolist(),
             topk2=tal_topk2,
         )
-        self.bbox_loss = BboxLoss(m.reg_max).to(device) # 原有代码
+        self.bbox_loss = BboxLoss(m.reg_max).to(device)  # 原有代码
         # self.bbox_loss = BboxLoss(m.reg_max, self.hyp.imgsz, self.hyp.iou_type, self.hyp.Inner_iou, self.hyp.Focal,
         #                           self.hyp.Focaler, self.hyp.epochs, self.hyp.alpha).to(device) # 新代码
         self.proj = torch.arange(m.reg_max, dtype=torch.float, device=device)
-        self.focal_loss = FocalLoss() # 自己添加的
+        self.focal_loss = FocalLoss()  # 自己添加的
 
     def preprocess(self, targets: torch.Tensor, batch_size: int, scale_tensor: torch.Tensor) -> torch.Tensor:
         """Preprocess targets by converting to tensor format and scaling coordinates."""
@@ -1356,6 +1356,7 @@ class TVPSegmentLoss(TVPDetectLoss):
         cls_loss = vp_loss[0][2]
         return cls_loss, vp_loss[1]
 
+
 # --------------------Focus Loss-----------------------------------
 class FocalLoss(nn.Module):
     def __init__(self, alpha=None, gamma=2, num_classes=80, size_average=True):
@@ -1365,9 +1366,9 @@ class FocalLoss(nn.Module):
         :param alpha:   阿尔法α,类别权重.      当α是列表时,为各类别权重,当α为常数时,类别权重为[α, 1-α, 1-α, ....],常用于 目标检测算法中抑制背景类 , retainnet中设置为0.25
         :param gamma:   伽马γ,难易样本调节参数. retainnet中设置为2
         :param num_classes:     类别数量
-        :param size_average:    损失计算方式,默认取均值
+        :param size_average:    损失计算方式,默认取均值.
         """
-        super(FocalLoss, self).__init__()
+        super().__init__()
         self.size_average = size_average
         if alpha is None:
             self.alpha = torch.ones(num_classes)
@@ -1378,7 +1379,7 @@ class FocalLoss(nn.Module):
             assert alpha < 1  # 如果α为一个常数,则降低第一类的影响,在目标检测中第一类为背景类
             self.alpha = torch.zeros(num_classes)
             self.alpha[0] += alpha
-            self.alpha[1:] += (1 - alpha)  # α 最终为 [ α, 1-α, 1-α, 1-α, 1-α, ...] size:[num_classes]
+            self.alpha[1:] += 1 - alpha  # α 最终为 [ α, 1-α, 1-α, 1-α, 1-α, ...] size:[num_classes]
 
         self.gamma = gamma
 
@@ -1392,12 +1393,15 @@ class FocalLoss(nn.Module):
         preds_logsoft = F.log_softmax(preds, dim=1)  # log_softmax
         preds_softmax = torch.exp(preds_logsoft)  # softmax
         labels = labels.to(torch.int64)
-        preds_softmax = preds_softmax.gather(1, labels.view(-1, 1))  # 这部分实现nll_loss ( crossempty = log_softmax + nll )
+        preds_softmax = preds_softmax.gather(
+            1, labels.view(-1, 1)
+        )  # 这部分实现nll_loss ( crossempty = log_softmax + nll )
         preds_logsoft = preds_logsoft.gather(1, labels.view(-1, 1))
         alpha = self.alpha.gather(0, labels.view(-1))
         print(alpha.is_cuda, labels.is_cuda)
-        loss = -torch.mul(torch.pow((1 - preds_softmax), self.gamma),
-                          preds_logsoft)  # torch.pow((1-preds_softmax), self.gamma) 为focal loss中 (1-pt)**γ
+        loss = -torch.mul(
+            torch.pow((1 - preds_softmax), self.gamma), preds_logsoft
+        )  # torch.pow((1-preds_softmax), self.gamma) 为focal loss中 (1-pt)**γ
 
         loss = torch.mul(alpha, loss.t())
         if self.size_average:
@@ -1405,4 +1409,6 @@ class FocalLoss(nn.Module):
         else:
             loss = loss.sum()
         return loss
+
+
 # ---------------------------------------------------------
