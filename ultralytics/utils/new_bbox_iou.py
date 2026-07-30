@@ -1,6 +1,7 @@
 import math
-import numpy as np
+
 import torch
+
 from .ops import xyxy2xywh
 
 
@@ -8,27 +9,33 @@ def inner_iou(box1, box2, xywh=True, eps=1e-7, ratio=0.7):
     if not xywh:
         box1, box2 = xyxy2xywh(box1), xyxy2xywh(box2)
     (x1, y1, w1, h1), (x2, y2, w2, h2) = box1.chunk(4, -1), box2.chunk(4, -1)
-    inner_b1_x1, inner_b1_x2, inner_b1_y1, inner_b1_y2 = x1 - (w1 * ratio) / 2, x1 + (w1 * ratio) / 2, y1 - (
-                h1 * ratio) / 2, y1 + (h1 * ratio) / 2
-    inner_b2_x1, inner_b2_x2, inner_b2_y1, inner_b2_y2 = x2 - (w2 * ratio) / 2, x2 + (w2 * ratio) / 2, y2 - (
-                h2 * ratio) / 2, y2 + (h2 * ratio) / 2
+    inner_b1_x1, inner_b1_x2, inner_b1_y1, inner_b1_y2 = (
+        x1 - (w1 * ratio) / 2,
+        x1 + (w1 * ratio) / 2,
+        y1 - (h1 * ratio) / 2,
+        y1 + (h1 * ratio) / 2,
+    )
+    inner_b2_x1, inner_b2_x2, inner_b2_y1, inner_b2_y2 = (
+        x2 - (w2 * ratio) / 2,
+        x2 + (w2 * ratio) / 2,
+        y2 - (h2 * ratio) / 2,
+        y2 + (h2 * ratio) / 2,
+    )
 
     # Inner-IoU
-    inter = (inner_b1_x2.minimum(inner_b2_x2) - inner_b1_x1.maximum(inner_b2_x1)).clamp_(0) * \
-            (inner_b1_y2.minimum(inner_b2_y2) - inner_b1_y1.maximum(inner_b2_y1)).clamp_(0)
+    inter = (inner_b1_x2.minimum(inner_b2_x2) - inner_b1_x1.maximum(inner_b2_x1)).clamp_(0) * (
+        inner_b1_y2.minimum(inner_b2_y2) - inner_b1_y1.maximum(inner_b2_y1)
+    ).clamp_(0)
     inner_union = w1 * h1 * ratio * ratio + w2 * h2 * ratio * ratio - inter + eps
     return inter / inner_union
 
 
 class WIoU_Scale:
-    ''' monotonous: {
-            None: origin v1
-            True: monotonic FM v2
-            False: non-monotonic FM v3
-        }
-        momentum: The momentum of running mean'''
+    """monotonous: { None: origin v1 True: monotonic FM v2 False: non-monotonic FM v3 } momentum: The momentum of
+    running mean.
+    """
 
-    iou_mean = 1.
+    iou_mean = 1.0
     monotonous = False
     _momentum = 1 - 0.5 ** (1 / 7000)
     _is_train = True
@@ -39,8 +46,8 @@ class WIoU_Scale:
 
     @classmethod
     def _update(cls, self):
-        if cls._is_train: cls.iou_mean = (1 - cls._momentum) * cls.iou_mean + \
-                                         cls._momentum * self.iou.detach().mean().item()
+        if cls._is_train:
+            cls.iou_mean = (1 - cls._momentum) * cls.iou_mean + cls._momentum * self.iou.detach().mean().item()
 
     @classmethod
     def _scaled_loss(cls, self, gamma=1.9, delta=3):
@@ -54,12 +61,36 @@ class WIoU_Scale:
         return 1
 
 
-def new_bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU=False, EIoU=False, WIoU=False,
-                 MPDIoU=False, ShapeIou=False, PIouV1=False, PIouV2=False, UIoU=False, Inner_iou=False,
-                 Focal=False, alpha=1, gamma=0.5, scale=False, eps=1e-7,
-                 feat_w=640, feat_h=640, ratio=0.7, ShapeIou_scale=0, PIou_Lambda=1.3, epoch=300):
-    """
-    计算bboxes iou
+def new_bbox_iou(
+    box1,
+    box2,
+    xywh=True,
+    GIoU=False,
+    DIoU=False,
+    CIoU=False,
+    SIoU=False,
+    EIoU=False,
+    WIoU=False,
+    MPDIoU=False,
+    ShapeIou=False,
+    PIouV1=False,
+    PIouV2=False,
+    UIoU=False,
+    Inner_iou=False,
+    Focal=False,
+    alpha=1,
+    gamma=0.5,
+    scale=False,
+    eps=1e-7,
+    feat_w=640,
+    feat_h=640,
+    ratio=0.7,
+    ShapeIou_scale=0,
+    PIou_Lambda=1.3,
+    epoch=300,
+):
+    """计算bboxes iou.
+
     Args:
         box1: predict bboxes
         box2: target bboxes
@@ -82,14 +113,14 @@ def new_bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU
         eps: 防止除0
         feat_w/h: 特征图大小
         ratio: Inner-IoU对应的是尺度因子,通常取范围为[0.5,1.5],原文中VOC数据集对应的Inner-CIoU和Inner-SIoU设置在[0.7,0.8]之间有较大提升，
-        数据集中大目标多则设置<1,小目标多设置>1
+            数据集中大目标多则设置<1,小目标多设置>1
         ShapeIou_scale: 为ShapeIou的缩放因子,与数据集中目标的大小相关
         PIou_Lambda: 为Powerful-IoU的超参数
         epoch: 为Unified-IoU的超参数,训练轮数
-    Returns:
-        iou
-    """
 
+    Returns:
+        iou.
+    """
     # Returns Intersection over Union (IoU) of box1(1,4) to box2(n,4)
 
     # Get the coordinates of bounding boxes
@@ -134,8 +165,9 @@ def new_bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU
         CIoU = True
 
         # Intersection area
-    inter = (b1_x2.minimum(b2_x2) - b1_x1.maximum(b2_x1)).clamp(0) * \
-            (b1_y2.minimum(b2_y2) - b1_y1.maximum(b2_y1)).clamp(0)
+    inter = (b1_x2.minimum(b2_x2) - b1_x1.maximum(b2_x1)).clamp(0) * (
+        b1_y2.minimum(b2_y2) - b1_y1.maximum(b2_y1)
+    ).clamp(0)
 
     # Union Area
     union = w1 * h1 + w2 * h2 - inter + eps
@@ -149,37 +181,40 @@ def new_bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU
         cw = b1_x2.maximum(b2_x2) - b1_x1.minimum(b2_x1)  # convex (smallest enclosing box) width
         ch = b1_y2.maximum(b2_y2) - b1_y1.minimum(b2_y1)  # convex height
         if CIoU or DIoU or EIoU or SIoU or WIoU:  # Distance or Complete IoU https://arxiv.org/abs/1911.08287v1
-            c2 = (cw ** 2 + ch ** 2) ** alpha + eps  # convex diagonal squared
-            rho2 = (((b2_x1 + b2_x2 - b1_x1 - b1_x2) ** 2 + (
-                        b2_y1 + b2_y2 - b1_y1 - b1_y2) ** 2) / 4) ** alpha  # center dist ** 2
+            c2 = (cw**2 + ch**2) ** alpha + eps  # convex diagonal squared
+            rho2 = (
+                ((b2_x1 + b2_x2 - b1_x1 - b1_x2) ** 2 + (b2_y1 + b2_y2 - b1_y1 - b1_y2) ** 2) / 4
+            ) ** alpha  # center dist ** 2
             if CIoU:  # https://github.com/Zzh-tju/DIoU-SSD-pytorch/blob/master/utils/box/box_utils.py#L47
-                v = (4 / math.pi ** 2) * (torch.atan(w2 / h2) - torch.atan(w1 / h1)).pow(2)
+                v = (4 / math.pi**2) * (torch.atan(w2 / h2) - torch.atan(w1 / h1)).pow(2)
                 with torch.no_grad():
                     alpha_ciou = v / (v - iou + (1 + eps))
                 if Inner_iou and alpha == 1:
                     iou = inner_iou(box1, box2, xywh=xywh, ratio=ratio)
                 if Focal:
-                    return iou - (rho2 / c2 + torch.pow(v * alpha_ciou + eps, alpha)), torch.pow(inter / (union + eps),
-                                                                                                 gamma)  # Focal_CIoU
+                    return iou - (rho2 / c2 + torch.pow(v * alpha_ciou + eps, alpha)), torch.pow(
+                        inter / (union + eps), gamma
+                    )  # Focal_CIoU
                 else:
                     return iou - (rho2 / c2 + torch.pow(v * alpha_ciou + eps, alpha))  # CIoU
             elif EIoU:
                 rho_w2 = ((b2_x2 - b2_x1) - (b1_x2 - b1_x1)) ** 2
                 rho_h2 = ((b2_y2 - b2_y1) - (b1_y2 - b1_y1)) ** 2
-                cw2 = torch.pow(cw ** 2 + eps, alpha)
-                ch2 = torch.pow(ch ** 2 + eps, alpha)
+                cw2 = torch.pow(cw**2 + eps, alpha)
+                ch2 = torch.pow(ch**2 + eps, alpha)
                 if Inner_iou and alpha == 1:
                     iou = inner_iou(box1, box2, xywh=xywh, ratio=ratio)
                 if Focal:
-                    return iou - (rho2 / c2 + rho_w2 / cw2 + rho_h2 / ch2), torch.pow(inter / (union + eps),
-                                                                                      gamma)  # Focal_EIou
+                    return iou - (rho2 / c2 + rho_w2 / cw2 + rho_h2 / ch2), torch.pow(
+                        inter / (union + eps), gamma
+                    )  # Focal_EIou
                 else:
                     return iou - (rho2 / c2 + rho_w2 / cw2 + rho_h2 / ch2)  # EIou
             elif SIoU:
                 # SIoU Loss https://arxiv.org/pdf/2205.12740.pdf
                 s_cw = (b2_x1 + b2_x2 - b1_x1 - b1_x2) * 0.5 + eps
                 s_ch = (b2_y1 + b2_y2 - b1_y1 - b1_y2) * 0.5 + eps
-                sigma = torch.pow(s_cw ** 2 + s_ch ** 2, 0.5)
+                sigma = torch.pow(s_cw**2 + s_ch**2, 0.5)
                 sin_alpha_1 = torch.abs(s_cw) / sigma
                 sin_alpha_2 = torch.abs(s_ch) / sigma
                 threshold = pow(2, 0.5) / 2
@@ -196,7 +231,8 @@ def new_bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU
                     iou = inner_iou(box1, box2, xywh=xywh, ratio=ratio)
                 if Focal:
                     return iou - torch.pow(0.5 * (distance_cost + shape_cost) + eps, alpha), torch.pow(
-                        inter / (union + eps), gamma)  # Focal_SIou
+                        inter / (union + eps), gamma
+                    )  # Focal_SIou
                 else:
                     return iou - torch.pow(0.5 * (distance_cost + shape_cost) + eps, alpha)  # SIou
             elif WIoU and alpha == 1:
@@ -205,10 +241,13 @@ def new_bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU
                 if Focal:
                     raise RuntimeError("WIoU do not support Focal.")
                 elif scale:
-                    return getattr(WIoU_Scale, '_scaled_loss')(self), (1 - iou) * torch.exp(
-                        (rho2 / c2)), iou  # WIoU https://arxiv.org/abs/2301.10051
+                    return (
+                        WIoU_Scale._scaled_loss(self),
+                        (1 - iou) * torch.exp(rho2 / c2),
+                        iou,
+                    )  # WIoU https://arxiv.org/abs/2301.10051
                 else:
-                    return iou, torch.exp((rho2 / c2))  # WIoU v1
+                    return iou, torch.exp(rho2 / c2)  # WIoU v1
 
             if Inner_iou and alpha == 1:
                 iou = inner_iou(box1, box2, xywh=xywh, ratio=ratio)
@@ -221,14 +260,15 @@ def new_bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU
         if Inner_iou and alpha == 1:
             iou = inner_iou(box1, box2, xywh=xywh, ratio=ratio)
         if Focal:
-            return iou - torch.pow((c_area - union) / c_area + eps, alpha), torch.pow(inter / (union + eps),
-                                                                                      gamma)  # Focal_GIoU https://arxiv.org/pdf/1902.09630.pdf
+            return iou - torch.pow((c_area - union) / c_area + eps, alpha), torch.pow(
+                inter / (union + eps), gamma
+            )  # Focal_GIoU https://arxiv.org/pdf/1902.09630.pdf
         else:
             return iou - torch.pow((c_area - union) / c_area + eps, alpha)  # GIoU https://arxiv.org/pdf/1902.09630.pdf
 
     elif MPDIoU and alpha == 1:
         # MPDIoU https://arxiv.org/pdf/2307.07662v1
-        sq_sum = (feat_w ** 2) + (feat_h ** 2)  # 对应输入image的宽高
+        sq_sum = (feat_w**2) + (feat_h**2)  # 对应输入image的宽高
         d12 = (b2_x1 - b1_x1) ** 2 + (b2_y1 - b1_y1) ** 2
         d22 = (b2_x2 - b1_x2) ** 2 + (b2_y2 - b1_y2) ** 2
         if Inner_iou:
@@ -243,7 +283,7 @@ def new_bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU
         hh = 2 * torch.pow(h2, ShapeIou_scale) / (torch.pow(w2, ShapeIou_scale) + torch.pow(h2, ShapeIou_scale))
         cw = torch.max(b1_x2, b2_x2) - torch.min(b1_x1, b2_x1)  # convex width
         ch = torch.max(b1_y2, b2_y2) - torch.min(b1_y1, b2_y1)  # convex height
-        c2 = cw ** 2 + ch ** 2 + eps  # convex diagonal squared
+        c2 = cw**2 + ch**2 + eps  # convex diagonal squared
         center_distance_x = ((b2_x1 + b2_x2 - b1_x1 - b1_x2) ** 2) / 4
         center_distance_y = ((b2_y1 + b2_y2 - b1_y1 - b1_y2) ** 2) / 4
         center_distance = hh * center_distance_x + ww * center_distance_y
@@ -266,7 +306,7 @@ def new_bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU
         dh1 = torch.abs(b1_y2.minimum(b1_y1) - b2_y2.minimum(b2_y1))
         dh2 = torch.abs(b1_y2.maximum(b1_y1) - b2_y2.maximum(b2_y1))
         P = ((dw1 + dw2) / torch.abs(w2) + (dh1 + dh2) / torch.abs(h2)) / 4
-        L_v1 = 1 - iou - torch.exp(-P ** 2) + 1
+        L_v1 = 1 - iou - torch.exp(-(P**2)) + 1
 
         if Focal:
             raise RuntimeError("PIou do not support Focal.")
@@ -275,7 +315,7 @@ def new_bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU
         if PIouV2:
             q = torch.exp(-P)
             x = q * PIou_Lambda
-            return 3 * x * torch.exp(-x ** 2) * L_v1
+            return 3 * x * torch.exp(-(x**2)) * L_v1
 
     if Inner_iou and alpha == 1:
         iou = inner_iou(box1, box2, xywh=xywh, ratio=ratio)
@@ -283,4 +323,3 @@ def new_bbox_iou(box1, box2, xywh=True, GIoU=False, DIoU=False, CIoU=False, SIoU
         return iou, torch.pow(inter / (union + eps), gamma)  # Focal_IoU
     else:
         return iou  # IoU
-

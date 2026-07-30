@@ -1,15 +1,15 @@
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 from ultralytics import YOLO
 
 # Load a model
 model = YOLO("yolov8s.yaml")  # build a new model from scratch
-model.load('yolov8s.pt')
+model.load("yolov8s.pt")
 
 # Use the model
 # 默认Ciou
-model.train(data="data.yaml",
-             imgsz=640, epochs=1, workers=0, batch=32, close_mosaic=0)
+model.train(data="data.yaml", imgsz=640, epochs=1, workers=0, batch=32, close_mosaic=0)
 
 # # Siou
 # model.train(data=r"/home/ubuntu/work/ct/datasets/minidatasets/VisDrone.yaml",
@@ -53,4 +53,3 @@ model.train(data="data.yaml",
 
 metrics = model.val()  # evaluate model performance on the validation set
 path = model.export(format="onnx", dynamic=True)  # export the mode l to ONNX format
-
