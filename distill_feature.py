@@ -1,12 +1,13 @@
-from ultralytics import YOLO
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
+
+from ultralytics import YOLO
 
 # ===================== 蒸馏配置（只改这里） =====================
-STUDENT = 'yolov8s.pt'  # 轻量学生模型
-TEACHER = 'runs/detect/result/aircraft/yolov8-loss/SIOU-LeakyReLU/weights/best.pt'  # 训练好的教师模型
-DATA = 'data.yaml'  # 你的数据集配置
+STUDENT = "yolov8s.pt"  # 轻量学生模型
+TEACHER = "runs/detect/result/aircraft/yolov8-loss/SIOU-LeakyReLU/weights/best.pt"  # 训练好的教师模型
+DATA = "data.yaml"  # 你的数据集配置
 EPOCHS = 100
 BATCH = 16
 DEVICE = 0
@@ -14,6 +15,7 @@ ALPHA = 0.5  # 蒸馏损失权重
 
 
 # ==============================================================
+
 
 # 特征对齐模块（解决学生/教师通道数不一致问题）
 class FeatureAlign(nn.Module):
@@ -54,11 +56,13 @@ def run_feature_distill():
         teacher.model[idx].register_forward_hook(teacher_hook)
 
     # 4. 特征对齐层（适配通道数）
-    align_layers = nn.ModuleList([
-        FeatureAlign(128, 128).to(DEVICE),  # 小尺度
-        FeatureAlign(256, 256).to(DEVICE),  # 中尺度
-        FeatureAlign(512, 512).to(DEVICE)  # 大尺度
-    ])
+    align_layers = nn.ModuleList(
+        [
+            FeatureAlign(128, 128).to(DEVICE),  # 小尺度
+            FeatureAlign(256, 256).to(DEVICE),  # 中尺度
+            FeatureAlign(512, 512).to(DEVICE),  # 大尺度
+        ]
+    )
 
     # 5. 重写前向传播，加入特征蒸馏损失
     original_forward = student_model.forward
@@ -93,9 +97,9 @@ def run_feature_distill():
         batch=BATCH,
         device=DEVICE,
         project="runs_feature_distill",
-        name="yolov8_feature_distill"
+        name="yolov8_feature_distill",
     )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     run_feature_distill()
