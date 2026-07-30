@@ -1,7 +1,6 @@
-import numpy as np
 import torch
 from torch import nn
-from torch.nn import init
+
 """
 通道注意力模型: 通道维度不变，压缩空间维度。该模块关注输入图片中有意义的信息。
 1）假设输入的数据大小是(b,c,w,h)
@@ -37,7 +36,7 @@ class SpatialAttention(nn.Module):
     # Spatial-attention module
     def __init__(self, kernel_size=7):
         super().__init__()
-        assert kernel_size in (3, 7), 'kernel size must be 3 or 7'
+        assert kernel_size in (3, 7), "kernel size must be 3 or 7"
         padding = 3 if kernel_size == 7 else 1
         self.cv1 = nn.Conv2d(2, 1, kernel_size, padding=padding, bias=False)
         self.act = nn.Sigmoid()
@@ -55,5 +54,3 @@ class CBAM(nn.Module):
 
     def forward(self, x):
         return self.spatial_attention(self.channel_attention(x))
-
-

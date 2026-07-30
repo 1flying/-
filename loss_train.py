@@ -5,7 +5,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 # 设置仅使用第0块GPU
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 from ultralytics import YOLO
 
@@ -16,7 +16,7 @@ if __name__ == "__main__":
     # model.load('yolov8s.pt')      # 加载预训练权重
 
     # 方式2：直接加载预训练模型（更简洁，对应第二段代码）
-    model = YOLO('yolov8s')  # 等价于加载yolov8s.yaml + yolov8s.pt
+    model = YOLO("yolov8s")  # 等价于加载yolov8s.yaml + yolov8s.pt
 
     # -------------------------- 训练参数（整合+规范） --------------------------
     # 选择你要使用的IoU损失类型，取消对应注释即可
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         "amp": True,
         "project": "result/aircraft/yolov8-loss",  # 结果保存路径（第二段）
         "name": "CIoU",  # 实验名称，对应不同IoU类型
-        "exist_ok": True  # 允许覆盖已有结果（最新版YOLOv8新增）
+        "exist_ok": True,  # 允许覆盖已有结果（最新版YOLOv8新增）
     }
 
     # 2. SIoU（取消下面注释，注释上面CIoU参数）
