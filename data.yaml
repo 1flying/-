@@ -3,7 +3,7 @@ val: C:\Users\Administrator\Desktop\毕业设计\My First Project.v3i.yolov8/val
 test: C:\Users\Administrator\Desktop\毕业设计\My First Project.v3i.yolov8/test/images
 
 nc: 15
-names: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'C', 'L', 'R', 'objects','runway']
+names: ["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "C", "L", "R", "objects", "runway"]
 
 roboflow:
   workspace: bigbirdflying
